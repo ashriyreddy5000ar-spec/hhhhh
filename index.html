@@ -1473,9 +1473,16 @@ async function doAuth(){
       'auth/invalid-email':'Invalid email address.',
       'auth/weak-password':'Password must be at least 6 characters.',
       'auth/too-many-requests':'Too many attempts. Try again later.',
-      'auth/network-request-failed':'Network error. Check your connection.'
+      'auth/network-request-failed':'Network error. Check your connection.',
+      'auth/operation-not-allowed':'Email/Password sign-in is not enabled in Firebase Console → Authentication → Sign-in method.',
+      'auth/configuration-not-found':'Authentication not configured. Enable Email/Password in Firebase Console.',
+      'auth/admin-restricted-operation':'Anonymous sign-in not enabled in Firebase Console → Authentication → Sign-in method.',
+      'auth/unauthorized-domain':'This domain is not authorised. Add it in Firebase Console → Authentication → Settings → Authorised domains.',
+      'auth/internal-error':'Firebase internal error. Check Firebase Console for details.'
     };
-    $('authErr').textContent=msgs[e.code]||'An error occurred. Please try again.';
+    const friendly = msgs[e.code];
+    $('authErr').textContent = friendly || ('Error: ' + (e.code || e.message));
+    console.error('Auth error code:', e.code, '| message:', e.message);
   }finally{$('authBtn').disabled=false;}
 }
 async function doGuest(){
