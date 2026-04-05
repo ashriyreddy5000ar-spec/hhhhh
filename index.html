@@ -1188,7 +1188,7 @@ body::before {
 
     <div class="score-hero" role="region" aria-label="Performance score">
       <div class="sh-top">
-        <div class="sh-label">Your Score</div>
+        <div class="sh-label">Today's Score</div>
         <div class="score-tier badge-starter" id="scoreBadge">Starter</div>
       </div>
       <div class="sh-main">
@@ -1468,11 +1468,11 @@ function dayScore(k){
   return Math.round(d/t*100);
 }
 function userScore(){
-  const scores=S.habits.map(habitScore);
-  if(!scores.length)return 0;
-  const avg=scores.reduce((a,b)=>a+b,0)/scores.length;
-  const dr=daysTracked();
-  return Math.min(100,Math.round(avg*0.7+Math.min(dr,30)*1));
+  const td = today();
+  const scheduled = S.habits.filter(isScheduledToday);
+  if(!scheduled.length) return 0;
+  const done = scheduled.filter(h=>h.history&&h.history[td]).length;
+  return Math.round((done / scheduled.length) * 100);
 }
 function bestStreakAll(){return S.habits.length?Math.max(...S.habits.map(h=>h.bestStreak||0)):0;}
 function daysTracked(){
@@ -1481,12 +1481,26 @@ function daysTracked(){
   return keys.size;
 }
 function overallRate(){
-  const keys=k30();
   if(!S.habits.length)return 0;
-  const total=keys.length*S.habits.length;
-  if(!total)return 0;
-  const done=keys.reduce((acc,k)=>acc+S.habits.filter(h=>h.history&&h.history[k]).length,0);
-  return Math.round(done/total*100);
+  const td = today();
+  const dNow = new Date(td + 'T12:00:00');
+  let totalHabitDays = 0;
+  let totalDone = 0;
+  S.habits.forEach(h => {
+    let created = h.createdAt ? new Date(h.createdAt + 'T12:00:00') : dNow;
+    if (created > dNow) created = dNow;
+    let daysDiff = Math.floor((dNow - created) / (1000 * 60 * 60 * 24)) + 1;
+    daysDiff = Math.min(30, daysDiff);
+    totalHabitDays += daysDiff;
+    for (let i = 0; i < daysDiff; i++) {
+        const d = new Date(dNow);
+        d.setDate(d.getDate() - i);
+        const k = d.toISOString().slice(0, 10);
+        if (h.history && h.history[k]) totalDone++;
+    }
+  });
+  if (!totalHabitDays) return 0;
+  return Math.round((totalDone / totalHabitDays) * 100);
 }
 
 // ─── STREAK RECALC ───────────────────────────────────────────
@@ -1871,13 +1885,13 @@ function updateUserScore(){
   $('scoreNum').innerHTML=`${sc}<span>/100</span>`;
   $('sbarFill').style.width=sc+'%';
   let tier,bc,tr;
-  if(sc>=80){tier='Elite';bc='badge-elite';tr='Outstanding performance · top tier';}
-  else if(sc>=60){tier='Pro';bc='badge-pro';tr='Strong consistency · keep pushing';}
-  else if(sc>=35){tier='Rising';bc='badge-rising';tr='Building momentum · stay consistent';}
-  else{tier='Starter';bc='badge-starter';tr='Complete habits to build your score';}
+  if(sc===100){tier='Perfect';bc='badge-elite';tr='All scheduled habits completed today!';}
+  else if(sc>=50){tier='On Track';bc='badge-pro';tr='Great progress today · finish strong';}
+  else if(sc>0){tier='Started';bc='badge-rising';tr='Good start · keep checking off habits';}
+  else{tier="Let's Begin";bc='badge-starter';tr='Complete habits to build your score';}
   // FIX: use 'score-tier' not 'score-badge' (matches CSS class name)
   const badge=$('scoreBadge');badge.textContent=tier;badge.className=`score-tier ${bc}`;
-  $('sbarFill').style.background=sc>=80?'#4ADE80':sc>=60?'#60A5FA':sc>=35?'#A78BFA':'#C4A96B';
+  $('sbarFill').style.background=sc===100?'#4ADE80':sc>=50?'#60A5FA':sc>0?'#A78BFA':'#C4A96B';
   $('scoreTrend').textContent=tr;
   $('metaStreak').textContent=bestStreakAll();
   $('metaDays').textContent=daysTracked();
