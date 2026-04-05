@@ -951,6 +951,19 @@ body::before {
 }
 .btn-save:hover  { box-shadow: 0 6px 20px rgba(212,168,83,0.35); }
 .btn-save:active { opacity: 0.9; transform: scale(0.98); }
+.btn-ai {
+  flex: 1; padding: 12px;
+  border-radius: var(--r-sm); border: none;
+  background: linear-gradient(135deg, rgba(155,127,234,0.15) 0%, rgba(155,127,234,0.05) 100%);
+  border: 1px solid rgba(155,127,234,0.4);
+  font-family: var(--font-display); font-size: 13px; font-weight: 700;
+  color: var(--purple); cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s, background 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 16px rgba(155,127,234,0.1);
+}
+.btn-ai:hover  { background: rgba(155,127,234,0.25); box-shadow: 0 4px 20px rgba(155,127,234,0.2); }
+.btn-ai:active { opacity: 0.9; transform: scale(0.98); }
+.btn-ai:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ═══════════════════════════════════════════════════════════════
    FAB
@@ -1342,8 +1355,10 @@ body::before {
       </div>
       <div class="form-actions">
         <button type="button" class="btn-cancel" id="cancelBtn">Cancel</button>
+        <button type="button" class="btn-ai" id="aiBtn">📷 Scan Image</button>
         <button type="button" class="btn-save" id="saveBtn">Add Habit</button>
       </div>
+      <input type="file" id="aiImageInput" accept="image/*" style="display:none;" />
     </div>
   </div>
 
@@ -2097,6 +2112,94 @@ function addHabit(){
   checkAchievements();
 }
 
+async function scanHabitsFromImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  let apiKey = localStorage.getItem('gemini_api_key');
+  if (!apiKey) {
+    apiKey = prompt("To use the AI Scanner, please enter your Google Gemini API Key:\n(You can get a free one at aistudio.google.com)");
+    if (!apiKey) {
+       e.target.value = '';
+       return;
+    }
+    localStorage.setItem('gemini_api_key', apiKey.trim());
+  }
+
+  const aiBtn = $('aiBtn');
+  const ogText = aiBtn.innerHTML;
+  aiBtn.disabled = true;
+  aiBtn.innerHTML = '<div class="social-spinner" style="display:inline-block;margin-right:8px;vertical-align:middle;border-top-color:#161616;"></div>Scanning...';
+
+  try {
+    const base64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+
+    const body = {
+      contents: [{
+        parts: [
+          { text: "Analyze the handwritten or printed daily habits in this image. Extract a list of habits. Choose a fitting emoji for each, and classify each into one category: [health, mind, productivity, finance, social, custom]. Respond ONLY with a valid JSON array of objects. Example: [{\"name\":\"Drink water\", \"category\":\"health\", \"emoji\":\"💧\"}]" },
+          { inlineData: { mimeType: file.type, data: base64 } }
+        ]
+      }]
+    };
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+        if(res.status === 400) throw new Error("Invalid API Key");
+        throw new Error("Failed to scan image");
+    }
+    
+    const json = await res.json();
+    let textStr = json.candidates[0].content.parts[0].text;
+    textStr = textStr.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    const habitsArr = JSON.parse(textStr);
+    
+    if (habitsArr && habitsArr.length) {
+      habitsArr.forEach(h => {
+        S.habits.push({
+          id: nid++,
+          emoji: h.emoji || '✨',
+          name: h.name || 'New Habit',
+          cat: h.category && CAT_LBL[h.category] ? h.category : 'custom',
+          freq: 'daily',
+          days: [],
+          reminder: null,
+          streak: 0, bestStreak: 0, history: {}, createdAt: today()
+        });
+      });
+      save();
+      closeForm();
+      renderAll();
+      showToast(`Added ${habitsArr.length} habits from image!`, 'success');
+      checkAchievements();
+    } else {
+      showToast('No habits found in image.', 'info');
+    }
+  } catch (error) {
+    console.error('AI Scan Error:', error);
+    if(error.message === "Invalid API Key") {
+        localStorage.removeItem('gemini_api_key');
+        showToast('Invalid API Key. Try again.', 'warn');
+    } else {
+        showToast('Error scanning image. Make sure it is legible.', 'warn');
+    }
+  } finally {
+    aiBtn.disabled = false;
+    aiBtn.innerHTML = ogText;
+    e.target.value = '';
+  }
+}
+
 // ─── FORM ────────────────────────────────────────────────────
 function buildPicker(){
   const p=$('emojiPicker');p.innerHTML='';
@@ -2204,6 +2307,8 @@ function renderAll(){renderHabits();updateAll();}
 $('fab').addEventListener('click',()=>formOpen?closeForm():openForm());
 $('cancelBtn').addEventListener('click',closeForm);
 $('saveBtn').addEventListener('click',addHabit);
+$('aiBtn').addEventListener('click',()=>$('aiImageInput').click());
+$('aiImageInput').addEventListener('change',scanHabitsFromImage);
 $('nameInput').addEventListener('keydown',e=>{if(e.key==='Enter')addHabit();if(e.key==='Escape')closeForm();});
 $('catSelect').addEventListener('change',e=>selCat=e.target.value);
 window.addEventListener('resize',()=>{if(chartRAF)cancelAnimationFrame(chartRAF);renderChart();});
