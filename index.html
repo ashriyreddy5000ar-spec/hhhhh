@@ -1682,8 +1682,21 @@ function bootGuestLocal(){
 function setSyncBadge(state){
   const b=$('syncBadge'),l=$('syncLabel');
   b.className='sync-badge sync-'+state;
-  l.textContent=state==='online'?'Synced':state==='offline'?'Offline':'Guest';
-  b.setAttribute('aria-label',`Sync: ${l.textContent}. Tap to sign out.`);
+  
+  if(currentUser && !isGuest){
+    // Show Name & Profile Pic if logged in
+    const name = currentUser.displayName || currentUser.email.split('@')[0];
+    const photo = currentUser.photoURL;
+    if(photo){
+      l.innerHTML = `<img src="${photo}" style="width:16px;height:16px;border-radius:50%;margin-right:4px;vertical-align:text-bottom;object-fit:cover;" onerror="this.style.display='none'"> <span>${name}</span>`;
+    }else{
+      l.textContent = name;
+    }
+    b.setAttribute('aria-label',`Signed in as ${name}. Tap to sign out.`);
+  }else{
+    l.textContent=state==='online'?'Synced':state==='offline'?'Offline':'Guest';
+    b.setAttribute('aria-label',`Sync: ${l.textContent}. Tap to sign out.`);
+  }
 }
 function handleSyncClick(){
   if(isGuest){if(confirm('Sign out of guest?')){location.reload();}}
