@@ -2116,14 +2116,13 @@ async function scanHabitsFromImage(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  let apiKey = localStorage.getItem('gemini_api_key');
-  if (!apiKey) {
-    apiKey = prompt("To use the AI Scanner, please enter your Google Gemini API Key:\n(You can get a free one at aistudio.google.com)");
-    if (!apiKey) {
-       e.target.value = '';
-       return;
-    }
-    localStorage.setItem('gemini_api_key', apiKey.trim());
+  // Reusing the Google API Key defined in firebaseConfig
+  const apiKey = firebaseConfig.apiKey;
+  
+  if (!apiKey || apiKey === "PASTE_YOUR_API_KEY_HERE") {
+    showToast('Developer: Please configure your Firebase/Google API Key at the top of the code.', 'warn');
+    e.target.value = '';
+    return;
   }
 
   const aiBtn = $('aiBtn');
@@ -2188,8 +2187,7 @@ async function scanHabitsFromImage(e) {
   } catch (error) {
     console.error('AI Scan Error:', error);
     if(error.message === "Invalid API Key") {
-        localStorage.removeItem('gemini_api_key');
-        showToast('Invalid API Key. Try again.', 'warn');
+        showToast('Invalid API Key setup. Contact developer.', 'warn');
     } else {
         showToast('Error scanning image. Make sure it is legible.', 'warn');
     }
