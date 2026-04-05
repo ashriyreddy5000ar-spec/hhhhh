@@ -2153,15 +2153,25 @@ async function scanHabitsFromImage(e) {
     });
 
     if (!res.ok) {
-        if(res.status === 400) throw new Error("Invalid API Key");
-        throw new Error("Failed to scan image");
+        let errData = {};
+        try { errData = await res.json(); } catch(e) {}
+        console.error('Gemini API Error payload:', errData);
+        if(res.status === 403) throw new Error("API Key restricted. Enable 'Generative Language API' in Google Cloud Console.");
+        if(res.status === 400 && errData?.error?.message?.includes('API key not valid')) throw new Error("Invalid API Key setup.");
+        throw new Error(errData?.error?.message || "Failed to scan image");
     }
     
     const json = await res.json();
-    let textStr = json.candidates[0].content.parts[0].text;
+    let textStr = json.candidates && json.candidates[0] ? json.candidates[0].content.parts[0].text : "[]";
     textStr = textStr.replace(/```json/g, '').replace(/```/g, '').trim();
     
-    const habitsArr = JSON.parse(textStr);
+    let habitsArr = [];
+    try {
+      habitsArr = JSON.parse(textStr);
+    } catch(err) {
+      console.error('JSON parse error from Gemini output:', textStr);
+      throw new Error("AI returned invalid data. Please try another image.");
+    }
     
     if (habitsArr && habitsArr.length) {
       habitsArr.forEach(h => {
@@ -2186,11 +2196,7 @@ async function scanHabitsFromImage(e) {
     }
   } catch (error) {
     console.error('AI Scan Error:', error);
-    if(error.message === "Invalid API Key") {
-        showToast('Invalid API Key setup. Contact developer.', 'warn');
-    } else {
-        showToast('Error scanning image. Make sure it is legible.', 'warn');
-    }
+    showToast(error.message || 'Error scanning image. Make sure it is legible.', 'warn');
   } finally {
     aiBtn.disabled = false;
     aiBtn.innerHTML = ogText;
