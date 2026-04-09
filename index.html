@@ -8,9 +8,34 @@
 <meta name="theme-color" content="#080808">
 <meta name="description" content="My Habits PRO — Track habits, build streaks, and transform your life.">
 <title>My Habits · PRO</title>
-<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23080808'/><path d='M8 16l5.5 6L24 10' stroke='%23D4A853' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>">\n<link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
+
+<script>
+(function(){
+  function makeIcon(size){
+    var c=document.createElement('canvas');c.width=size;c.height=size;
+    var ctx=c.getContext('2d');
+    ctx.fillStyle='#080808';
+    ctx.beginPath();ctx.roundRect(0,0,size,size,size*0.15);ctx.fill();
+    var s=size/32;
+    ctx.strokeStyle='#D4A853';ctx.lineWidth=3*s;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();ctx.moveTo(8*s,16*s);ctx.lineTo(13.5*s,22*s);ctx.lineTo(24*s,10*s);ctx.stroke();
+    ctx.shadowColor='rgba(212,168,83,0.5)';ctx.shadowBlur=4*s;
+    ctx.stroke();
+    return c.toDataURL('image/png');
+  }
+  var link=document.querySelector('link[rel="manifest"]');
+  if(link){
+    var m={name:"My Habits PRO",short_name:"Habits",start_url:"./",display:"standalone",
+      background_color:"#080808",theme_color:"#080808",
+      icons:[{src:makeIcon(192),sizes:"192x192",type:"image/png"},
+             {src:makeIcon(512),sizes:"512x512",type:"image/png"}]};
+    var blob=new Blob([JSON.stringify(m)],{type:'application/json'});
+    link.href=URL.createObjectURL(blob);
+  }
+})();
+</script>\n<style>
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
 ═══════════════════════════════════════════════════════════════ */
@@ -1020,7 +1045,7 @@ body::before {
   border: 1px solid rgba(61,214,140,0.3);
   color: var(--green);
 }
-.toast-info {
+.toast-warn {\n  background: rgba(240,180,41,0.15);\n  border: 1px solid rgba(240,180,41,0.3);\n  color: var(--amber);\n}\n.toast-info {
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.12);
   color: var(--snow2);
@@ -1126,7 +1151,7 @@ body::before {
       </div>
 
       <div class="auth-err" id="authErr" role="alert" aria-live="assertive"></div>
-      <button class="auth-btn" id="authBtn" onclick="doAuth()">Sign In</button>
+      <button class="auth-btn" id="authBtn" type="submit">Sign In</button>\n      </form>
 
       <!-- DOMAIN WARNING BANNER -->
       <div class="domain-warn" id="domainWarn" role="alert">
@@ -1185,7 +1210,7 @@ body::before {
   <div class="header" role="banner">
     <div class="header-top">
       <div class="header-brand">
-        <div class="brand-name" id="greeting">Good morning</div>
+        <h1 class="brand-name" id="greeting">Good morning</h1>
         <div class="brand-greeting" id="motiveLine">Build the life you want.</div>
       </div>
       <div class="header-meta">
@@ -1833,8 +1858,8 @@ function renderHabits(){
     list.innerHTML=msg;return;
   }
   const sorted=[...scheduled].sort((a,b)=>{
-    const da=!!(a.history&&a.history[td]),db=!!(b.history&&b.history[td]);
-    return da-db;
+    const doneA=!!(a.history&&a.history[td]),doneB=!!(b.history&&b.history[td]);
+    return doneA-doneB;
   });
   list.innerHTML='';
   sorted.forEach((h,i)=>{
@@ -2139,7 +2164,7 @@ async function scanHabitsFromImage(e) {
       }]
     };
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -2149,7 +2174,7 @@ async function scanHabitsFromImage(e) {
         let errData = {};
         try { errData = await res.json(); } catch(e) {}
         console.error('Gemini API Error payload:', errData);
-        if(res.status === 403) throw new Error("API Key restricted. Enable 'Generative Language API' in Google Cloud Console.");
+        if(res.status === 403) throw new Error("Generative Language API not enabled. Go to Google Cloud Console → APIs & Services → Credentials → Edit your API key → API restrictions → Add 'Generative Language API'.");
         if(res.status === 400 && errData?.error?.message?.includes('API key not valid')) throw new Error("Invalid API Key setup.");
         throw new Error(errData?.error?.message || "Failed to scan image");
     }
